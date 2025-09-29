@@ -20,8 +20,28 @@ namespace GSTExcelSplitter
         }
         private void btnSplitExcel_Click(object sender, EventArgs e)
         {
-            string sourceFile = @"C:\Temp\AirwallexData.xlsx"; // original file
-            string outputFolder = @"C:\Temp\Output\"; // folder to save split files
+            //string sourceFile = @"C:\Temp\AirwallexData.xlsx"; // original file
+            //string outputFolder = @"C:\Temp\Output\"; // folder to save split files
+
+            // File picker for input Excel
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "Excel Files|*.xlsx;*.xls";
+            ofd.Title = "Select an Excel file to split";
+
+            if (ofd.ShowDialog() != DialogResult.OK)
+                return;
+
+            string sourceFile = ofd.FileName;
+
+            // Folder picker for output
+            FolderBrowserDialog fbd = new FolderBrowserDialog();
+            fbd.Description = "Select a folder to save the split files";
+
+            if (fbd.ShowDialog() != DialogResult.OK)
+                return;
+
+            string outputFolder = fbd.SelectedPath;
+
             int batchSize = 3600;
             
 
@@ -55,6 +75,19 @@ namespace GSTExcelSplitter
                     Excel.Workbook newWorkbook = excelApp.Workbooks.Add();
                     Excel.Worksheet newSheet = newWorkbook.Sheets[1];
 
+                    // Copy Header Row for every batch file
+                    Excel.Range headerRange = sourceSheet.Range[
+                        sourceSheet.Cells[1, 1],
+                        sourceSheet.Cells[1, colCount]
+                        ];
+
+                    Excel.Range headerDest = newSheet.Range[
+                        newSheet.Cells[1, 1],
+                        newSheet.Cells[1, colCount]
+                        ];
+
+                    headerRange.Copy(headerDest);
+
                     // Method 1: Copy rows to new sheet
                     //for (int row = counter; row <= endRow; row++)
                     //{
@@ -72,11 +105,12 @@ namespace GSTExcelSplitter
                         ];
 
                     Excel.Range destRange = newSheet.Range[
-                        newSheet.Cells[1, 1],
-                        newSheet.Cells[endRow - counter + 1, colCount]
+                        newSheet.Cells[2, 1], // Start from row 2 because header is row 1
+                        newSheet.Cells[endRow - counter + 2, colCount]
                         ];
 
-                    sourceRange.Copy(destRange);
+                    object[,] data = sourceRange.Value2;
+                    destRange.Resize[data.GetLength(0), data.GetLength(1)].Value2 = data;
 
                     // Save new workbook
                     string newFile = Path.Combine(outputFolder, $"Batch_{fileIndex}.xlsx");
@@ -86,6 +120,8 @@ namespace GSTExcelSplitter
                     Console.WriteLine($"Saved {newFile}");
 
                     // Release batch ranges inside each iteration of while loop
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(headerRange);
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(headerDest);
                     System.Runtime.InteropServices.Marshal.ReleaseComObject(sourceRange);
                     System.Runtime.InteropServices.Marshal.ReleaseComObject(destRange);
                     sourceRange = null;
