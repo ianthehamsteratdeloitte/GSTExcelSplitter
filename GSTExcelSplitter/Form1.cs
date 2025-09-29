@@ -61,10 +61,60 @@ namespace GSTExcelSplitter
                 usedRange = sourceSheet.UsedRange;
                 int rowCount = usedRange.Rows.Count;
                 int colCount = usedRange.Columns.Count;
+                Console.WriteLine(colCount);
 
                 // Pull entire sheet into a 2D array and read usedRange into memory (allData)
                 object[,] allData = (object[,])usedRange.Value2;
 
+                // Create new 2D array with one additional column at column I
+                object[,] expandedData = new object[rowCount+1, colCount + 2];
+                /**
+                 * colCount = 8 because last col is currently H
+                 Excel Columns:
+                A  B  C  D  E  F  G  H
+                1  2  3  4  5  6  7  8   ← Excel indices
+                Add Result in col I = 9 (Excel Index)
+
+                colCount + 2 = 8 + 2 = 10
+                This gives us 10 slots for columns: indices 0...9
+                 */
+
+                // Copy old data from allData into new array
+                // WE NOW SKIP INDEX 0 AND START AT INDEX 1. THAT MEANS expandedData[r, 1] is Excel's column A
+                for (int r = 1; r <= rowCount; r++)
+                {
+                    for (int c = 1; c <= colCount; c++)
+                    {
+                        expandedData[r, c] = allData[r, c];
+                    }
+                }
+                /**
+                expandedData[r,1] = Excel A
+                expandedData[r,2] = Excel B
+                expandedData[r,3] = Excel C
+                expandedData[r,4] = Excel D
+                expandedData[r,5] = Excel E
+                expandedData[r,6] = Excel F
+                expandedData[r,7] = Excel G
+                expandedData[r,8] = Excel H
+
+                 */
+
+                // We now add "Result" column at colCount + 1 = 9
+                expandedData[1, colCount + 1] = "Result"; 
+
+                sourceSheet.Cells.Clear();
+
+                Excel.Range writeRange = sourceSheet.Range[
+                    sourceSheet.Cells[1, 1],
+                    sourceSheet.Cells[rowCount, colCount + 1]
+                    ];
+
+                writeRange.Value2 = expandedData;
+
+                colCount = colCount + 1;
+
+                allData = expandedData;
 
                 // Deduplicate using a HashSet
                 var seen = new HashSet<string>();
@@ -97,6 +147,7 @@ namespace GSTExcelSplitter
                 // Cleaer source sheet first
                 sourceSheet.Cells.Clear();
 
+   
                 // Convert List<object[]> dedupedRows back into 2D array
                 object[,] dedupedArray = new object[dedupedRows.Count, colCount];
                 for (int r = 0; r < dedupedRows.Count; r++)
@@ -108,10 +159,10 @@ namespace GSTExcelSplitter
                 }
 
                 // Write back to Excel
-                Excel.Range writeRange = sourceSheet.Range[
+                writeRange = sourceSheet.Range[
                     sourceSheet.Cells[1, 1],
                     sourceSheet.Cells[dedupedRows.Count, colCount]
-                    ];
+                ];
                 writeRange.Value2 = dedupedArray;
 
                 rowCount = dedupedRows.Count;
