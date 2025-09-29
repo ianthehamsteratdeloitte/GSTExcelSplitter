@@ -43,7 +43,6 @@ namespace GSTExcelSplitter
             string outputFolder = fbd.SelectedPath;
 
             int batchSize = 3600;
-            
 
             if (!Directory.Exists(outputFolder))
                 Directory.CreateDirectory(outputFolder);
@@ -52,7 +51,7 @@ namespace GSTExcelSplitter
             Excel.Workbook sourceWorkbook = null;
             Excel.Worksheet sourceSheet = null;
             Excel.Range usedRange = null;
-
+         
             try
             {
                 excelApp.Visible = false;
@@ -62,6 +61,60 @@ namespace GSTExcelSplitter
                 usedRange = sourceSheet.UsedRange;
                 int rowCount = usedRange.Rows.Count;
                 int colCount = usedRange.Columns.Count;
+
+                // Pull entire sheet into a 2D array and read usedRange into memory (allData)
+                object[,] allData = (object[,])usedRange.Value2;
+
+
+                // Deduplicate using a HashSet
+                var seen = new HashSet<string>();
+                var dedupedRows = new List<object[]>();
+
+                // Add header row first
+                object[] header = new object[colCount];
+                for (int c = 1; c <= colCount; c++)
+                    header[c - 1] = allData[1, c];
+                dedupedRows.Add(header);
+
+                // Loop through rows starting from 2 (skip header)
+                for (int r = 2; r <= rowCount; r++)
+                {
+                    string colA = allData[r, 1]?.ToString() ?? "";
+                    string colB = allData[r, 2]?.ToString() ?? "";
+                    string key = colA + "|" + colB;
+
+                    if (seen.Add(key))
+                    {
+                        object[] row = new object[colCount];
+                        for (int c = 1; c <= colCount; c++)
+                            row[c - 1] = allData[r, c];
+                        dedupedRows.Add(row);
+                    }
+                }
+
+                // Write deduplicated rows back into Excel
+
+                // Cleaer source sheet first
+                sourceSheet.Cells.Clear();
+
+                // Convert List<object[]> dedupedRows back into 2D array
+                object[,] dedupedArray = new object[dedupedRows.Count, colCount];
+                for (int r = 0; r < dedupedRows.Count; r++)
+                {
+                    for (int c = 0; c < colCount; c++)
+                    {
+                        dedupedArray[r, c] = dedupedRows[r][c];
+                    }
+                }
+
+                // Write back to Excel
+                Excel.Range writeRange = sourceSheet.Range[
+                    sourceSheet.Cells[1, 1],
+                    sourceSheet.Cells[dedupedRows.Count, colCount]
+                    ];
+                writeRange.Value2 = dedupedArray;
+
+                rowCount = dedupedRows.Count;
 
                 int counter = 1;
                 int fileIndex = 1;
@@ -86,7 +139,7 @@ namespace GSTExcelSplitter
                         newSheet.Cells[1, colCount]
                         ];
 
-                    headerRange.Copy(headerDest);
+                    headerDest.Value2 = headerRange.Value2;
 
                     // Method 1: Copy rows to new sheet
                     //for (int row = counter; row <= endRow; row++)
@@ -138,13 +191,6 @@ namespace GSTExcelSplitter
             }
             finally
             {
-                //sourceWorkbook?.Close(false);
-                //excelApp.Quit();
-
-                //System.Runtime.InteropServices.Marshal.ReleaseComObject(sourceSheet);
-                //System.Runtime.InteropServices.Marshal.ReleaseComObject(sourceWorkbook);
-                //System.Runtime.InteropServices.Marshal.ReleaseComObject(excelApp);
-
                 try
                 {
                     // Close workbook if still open
