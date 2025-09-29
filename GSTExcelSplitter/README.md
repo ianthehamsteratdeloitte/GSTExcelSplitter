@@ -1,6 +1,6 @@
 ﻿# GST Excel Splitter
 
-A C# WinForms tool built with **Microsoft.Office.Interop.Excel** to split large Excel files into smaller batches (default: 3,600 rows) for GST Registration checks.
+A C# WinForms tool built with **Microsoft.Office.Interop.Excel** to split large Excel files into smaller batches (default batchSize: 3,600 rows) for GST Registration checks.
 
 ## Features
 - Splits client Excel files into chunks of 3,600 rows.
